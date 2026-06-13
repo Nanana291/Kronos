@@ -16,7 +16,7 @@ local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
 
-local DISCORD_INVITE = "https://discord.gg/cVxjc7YBQU"
+local DISCORD_INVITE = "https://discord.gg/9FT8yAf8MG"
 
 local req =
     request
