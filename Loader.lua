@@ -15,17 +15,45 @@ local Games = {
     [9073775318] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/SlimeRpg.lua",
     [578392296] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/AnimeBattleArena.lua",
 }
+
+local ok, HttpService = pcall(game.GetService, game, "HttpService")
+if not ok then
+    warn("[Kronos] Failed to get HttpService:", HttpService)
+    return
+end
+
+local ok2, UserInputService = pcall(game.GetService, game, "UserInputService")
+if not ok2 then
+    warn("[Kronos] Failed to get UserInputService:", UserInputService)
+    return
+end
+
+local ok3, StarterGui = pcall(game.GetService, game, "StarterGui")
+if not ok3 then
+    warn("[Kronos] Failed to get StarterGui:", StarterGui)
+    return
+end
+
 local ScriptURL = Games[game.GameId]
 
 if ScriptURL then
-    loadstring(game:HttpGet(ScriptURL))()
+    local fetchOk, source = pcall(game.HttpGet, game, ScriptURL)
+    if not fetchOk then
+        warn("[Kronos] Failed to fetch script:", source)
+    else
+        local loadOk, loader = pcall(loadstring, source)
+        if not loadOk or not loader then
+            warn("[Kronos] Failed to compile script:", loader or "loadstring returned nil")
+        else
+            local execOk, execErr = pcall(loader)
+            if not execOk then
+                warn("[Kronos] Script execution error:", execErr)
+            end
+        end
+    end
 else
-    warn("Game not supported:", game.GameId)
+    warn("[Kronos] Game not supported:", game.GameId)
 end
-
-local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("UserInputService")
-local StarterGui = game:GetService("StarterGui")
 
 local DISCORD_INVITE = "https://discord.gg/9FT8yAf8MG"
 
@@ -36,19 +64,25 @@ local req =
     or (syn and syn.request)
 
 local function notify(title, text)
-    pcall(function()
+    local success, err = pcall(function()
         StarterGui:SetCore("SendNotification", {
             Title = title,
             Text = text,
             Duration = 6
         })
     end)
+
+    if not success then
+        warn("[Kronos] Notification failed:", err)
+    end
+
+    return success
 end
 
 local function copyInvite(invite)
     local copied = false
 
-    pcall(function()
+    local success, err = pcall(function()
         if setclipboard then
             setclipboard(invite)
             copied = true
@@ -58,11 +92,16 @@ local function copyInvite(invite)
         end
     end)
 
+    if not success then
+        warn("[Kronos] Clipboard copy failed:", err)
+    end
+
     return copied
 end
 
 local function openDiscordInviteRPC(invite)
     if not req then
+        warn("[Kronos] No HTTP request function available for Discord RPC")
         return false
     end
 
@@ -71,7 +110,7 @@ local function openDiscordInviteRPC(invite)
         or invite:match("discord%.com/invite/([%w%-_]+)")
         or invite
 
-    local payload = HttpService:JSONEncode({
+    local encodeOk, payload = pcall(HttpService.JSONEncode, HttpService, {
         cmd = "INVITE_BROWSER",
         args = {
             code = inviteCode
@@ -79,26 +118,34 @@ local function openDiscordInviteRPC(invite)
         nonce = HttpService:GenerateGUID(false)
     })
 
+    if not encodeOk then
+        warn("[Kronos] Failed to encode Discord RPC payload:", payload)
+        return false
+    end
+
     local opened = false
 
     for port = 6463, 6472 do
-        task.spawn(function()
-            local ok = pcall(function()
-                req({
-                    Url = ("http://127.0.0.1:%d/rpc?v=1"):format(port),
-                    Method = "POST",
-                    Headers = {
-                        ["Content-Type"] = "application/json",
-                        ["Origin"] = "https://discord.com"
-                    },
-                    Body = payload
-                })
-            end)
-
-            if ok then
-                opened = true
-            end
+        local reqOk, reqErr = pcall(function()
+            req({
+                Url = ("http://127.0.0.1:%d/rpc?v=1"):format(port),
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["Origin"] = "https://discord.com"
+                },
+                Body = payload
+            })
         end)
+
+        if reqOk then
+            opened = true
+            break
+        end
+    end
+
+    if not opened then
+        warn("[Kronos] Discord RPC failed on all ports (6463-6472)")
     end
 
     return opened
@@ -115,12 +162,20 @@ if isMobile then
         notify("Discord Invite", DISCORD_INVITE)
     end
 
-    print("Discord Invite:", DISCORD_INVITE)
+    print("[Kronos] Discord Invite:", DISCORD_INVITE)
 else
-    openDiscordInviteRPC(DISCORD_INVITE)
+    local rpcOpened = openDiscordInviteRPC(DISCORD_INVITE)
 
-    task.delay(1.5, function()
-        copyInvite(DISCORD_INVITE)
-        notify("Discord Invite", "Attempted to open Discord. Link copied as fallback.")
-    end)
+    if rpcOpened then
+        notify("Discord Invite", "Discord opened via RPC.")
+    else
+        local copied = copyInvite(DISCORD_INVITE)
+        if copied then
+            notify("Discord Invite", "Could not open Discord. Link copied to clipboard.")
+        else
+            notify("Discord Invite", DISCORD_INVITE)
+        end
+    end
+
+    print("[Kronos] Discord Invite:", DISCORD_INVITE)
 end
