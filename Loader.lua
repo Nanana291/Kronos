@@ -1,39 +1,76 @@
-local Games = {
-    [9073513091] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/AnimeApocalypse.lua",
-    [3647333358] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/Evade.lua",
-    [9910245722] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/IronSoulDungeon.lua",
-    [10230942274] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/AbilityArena.lua",
-    [8356066619] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/AnimeSquadron.lua",
-    [9965411707] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/NoobIncremental.lua",
-    [1268927906] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/MuscleLegends.lua",
-    [1176784616] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/TowerDefenseSimulator.lua",
-    [1235188606] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/DragonAdventures.lua",
-    [7546582051] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/DungeonHeroes.lua",
-    [4568630521] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/HeroesBattlegrounds.lua",
-    [9382839773] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/LineagePiece.lua",
-    [10178802449] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/MineClick.lua",
-    [9073775318] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/SlimeRpg.lua",
-    [578392296] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/AnimeBattleArena.lua",
-}
-local ScriptURL = Games[game.GameId]
-
-if ScriptURL then
-    loadstring(game:HttpGet(ScriptURL))()
-else
-    warn("Game not supported:", game.GameId)
-end
-
 local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
 
+local TRUSTED_URL_PREFIX = "https://raw.githubusercontent.com/Nanana291/Kronos/"
 local DISCORD_INVITE = "https://discord.gg/9FT8yAf8MG"
 
+local Games = {
+    [9073513091] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/AnimeApocalypse.lua",
+    [3647333358] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/Evade.lua",
+    [9910245722] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/IronSoulDungeon.lua",
+    [10230942274] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/AbilityArena.lua",
+    [8356066619] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/AnimeSquadron.lua",
+    [9965411707] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/NoobIncremental.lua",
+    [1268927906] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/MuscleLegends.lua",
+    [1176784616] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/TowerDefenseSimulator.lua",
+    [1235188606] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/DragonAdventures.lua",
+    [7546582051] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/DungeonHeroes.lua",
+    [4568630521] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/HeroesBattlegrounds.lua",
+    [9382839773] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/LineagePiece.lua",
+    [10178802449] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/MineClick.lua",
+    [9073775318] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/SlimeRpg.lua",
+    [578392296] = TRUSTED_URL_PREFIX .. "refs/heads/main/Scripts/AnimeBattleArena.lua",
+}
+
+local function isTrustedURL(url)
+    return type(url) == "string"
+        and url:sub(1, #TRUSTED_URL_PREFIX) == TRUSTED_URL_PREFIX
+        and not url:find("%.%.")
+        and url:match("%.lua$") ~= nil
+end
+
+local function loadGameScript()
+    local scriptURL = Games[game.GameId]
+    if not scriptURL then
+        warn("[Kronos] Game not supported:", game.GameId)
+        return
+    end
+
+    if not isTrustedURL(scriptURL) then
+        warn("[Kronos] Blocked untrusted URL:", scriptURL)
+        return
+    end
+
+    local ok, source = pcall(function()
+        return game:HttpGet(scriptURL)
+    end)
+
+    if not ok or type(source) ~= "string" or #source == 0 then
+        warn("[Kronos] Failed to fetch script:", scriptURL)
+        return
+    end
+
+    local fn, compileErr = loadstring(source)
+    if not fn then
+        warn("[Kronos] Failed to compile script:", compileErr)
+        return
+    end
+
+    local execOk, execErr = pcall(fn)
+    if not execOk then
+        warn("[Kronos] Script runtime error:", execErr)
+    end
+end
+
+loadGameScript()
+
 local req =
-    request
-    or http_request
-    or (http and http.request)
-    or (syn and syn.request)
+    (typeof(request) == "function" and request)
+    or (typeof(http_request) == "function" and http_request)
+    or (type(http) == "table" and typeof(http.request) == "function" and http.request)
+    or (type(syn) == "table" and typeof(syn.request) == "function" and syn.request)
+    or nil
 
 local function notify(title, text)
     pcall(function()
@@ -61,6 +98,9 @@ local function copyInvite(invite)
     return copied
 end
 
+local DISCORD_RPC_PORT_MIN = 6463
+local DISCORD_RPC_PORT_MAX = 6472
+
 local function openDiscordInviteRPC(invite)
     if not req then
         return false
@@ -69,7 +109,10 @@ local function openDiscordInviteRPC(invite)
     local inviteCode =
         invite:match("discord%.gg/([%w%-_]+)")
         or invite:match("discord%.com/invite/([%w%-_]+)")
-        or invite
+
+    if not inviteCode or #inviteCode == 0 then
+        return false
+    end
 
     local payload = HttpService:JSONEncode({
         cmd = "INVITE_BROWSER",
@@ -81,7 +124,9 @@ local function openDiscordInviteRPC(invite)
 
     local opened = false
 
-    for port = 6463, 6472 do
+    for port = DISCORD_RPC_PORT_MIN, DISCORD_RPC_PORT_MAX do
+        if opened then break end
+
         task.spawn(function()
             local ok = pcall(function()
                 req({
@@ -89,7 +134,6 @@ local function openDiscordInviteRPC(invite)
                     Method = "POST",
                     Headers = {
                         ["Content-Type"] = "application/json",
-                        ["Origin"] = "https://discord.com"
                     },
                     Body = payload
                 })
@@ -114,8 +158,6 @@ if isMobile then
     else
         notify("Discord Invite", DISCORD_INVITE)
     end
-
-    print("Discord Invite:", DISCORD_INVITE)
 else
     openDiscordInviteRPC(DISCORD_INVITE)
 
