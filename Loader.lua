@@ -37,6 +37,7 @@ local Games = {
     [10131390815] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/ThrowCoin.lua",
     [9280810829] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/LootUp.lua",
     [10298144467] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/RollAnime.lua",
+    [10518836988] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/GardenCleaner.lua",
 }
 local ScriptURL = Games[game.GameId]
 
