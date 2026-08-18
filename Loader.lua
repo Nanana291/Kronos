@@ -79,32 +79,188 @@ local Games = {
     [10636243604] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/AnimeCapture.lua",
 }
 
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+
+local DISCORD_INVITE = "https://discord.gg/9FT8yAf8MG"
+
+local DISCORD_FOLDER = "Kronos"
+local DISCORD_FLAG = DISCORD_FOLDER .. "/DiscordShown.txt"
+
+local req =
+    request
+    or http_request
+    or (http and http.request)
+    or (syn and syn.request)
+
+local function notify(title, text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = 6,
+        })
+    end)
+end
+
+local function ensureFolder()
+    if not makefolder or not isfolder then
+        return
+    end
+
+    pcall(function()
+        if not isfolder(DISCORD_FOLDER) then
+            makefolder(DISCORD_FOLDER)
+        end
+    end)
+end
+
+local function hasShownDiscord()
+    if not isfile then
+        return false
+    end
+
+    local success, exists = pcall(function()
+        return isfile(DISCORD_FLAG)
+    end)
+
+    return success and exists == true
+end
+
+local function markDiscordShown()
+    if not writefile then
+        return false
+    end
+
+    ensureFolder()
+
+    local success = pcall(function()
+        writefile(DISCORD_FLAG, tostring(os.time()))
+    end)
+
+    return success
+end
+
+local function copyInvite()
+    if setclipboard then
+        return pcall(setclipboard, DISCORD_INVITE)
+    end
+
+    if toclipboard then
+        return pcall(toclipboard, DISCORD_INVITE)
+    end
+
+    return false
+end
+
+local function openDiscordInvite()
+    if not req then
+        return false
+    end
+
+    local inviteCode =
+        DISCORD_INVITE:match("discord%.gg/([%w%-_]+)")
+        or DISCORD_INVITE:match("discord%.com/invite/([%w%-_]+)")
+
+    if not inviteCode then
+        return false
+    end
+
+    local payload = HttpService:JSONEncode({
+        cmd = "INVITE_BROWSER",
+        args = {
+            code = inviteCode,
+        },
+        nonce = HttpService:GenerateGUID(false),
+    })
+
+    local attempted = false
+
+    for port = 6463, 6472 do
+        task.spawn(function()
+            pcall(function()
+                req({
+                    Url = ("http://127.0.0.1:%d/rpc?v=1"):format(port),
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json",
+                        ["Origin"] = "https://discord.com",
+                    },
+                    Body = payload,
+                })
+            end)
+        end)
+
+        attempted = true
+    end
+
+    return attempted
+end
+
+local function handleDiscordOnce()
+    if hasShownDiscord() then
+        return
+    end
+
+    markDiscordShown()
+
+    local isMobile =
+        UserInputService.TouchEnabled
+        and not UserInputService.KeyboardEnabled
+
+    if isMobile then
+        local copied = copyInvite()
+
+        if copied then
+            notify("Kronos Discord", "Discord invite copied to clipboard.")
+        else
+            notify("Kronos Discord", DISCORD_INVITE)
+        end
+
+        return
+    end
+
+    local attempted = openDiscordInvite()
+
+    task.delay(1, function()
+        if attempted then
+            copyInvite()
+        elseif copyInvite() then
+            notify("Kronos Discord", "Discord invite copied to clipboard.")
+        else
+            notify("Kronos Discord", DISCORD_INVITE)
+        end
+    end)
+end
+
+handleDiscordOnce()
+
 local ScriptURL = Games[game.GameId]
 
-if ScriptURL then
-    local success, source = pcall(function()
-        return game:HttpGet(ScriptURL)
-    end)
-
-    if not success then
-        warn("[Kronos] Failed to download script:", source)
-        return
-    end
-
-    local compileSuccess, compiled = pcall(function()
-        return loadstring(source)
-    end)
-
-    if not compileSuccess or type(compiled) ~= "function" then
-        warn("[Kronos] Failed to compile script:", compiled)
-        return
-    end
-
-    local executeSuccess, executeError = pcall(compiled)
-
-    if not executeSuccess then
-        warn("[Kronos] Script execution failed:", executeError)
-    end
-else
+if not ScriptURL then
     warn("[Kronos] Game not supported:", game.GameId)
+    return
+end
+
+local downloadSuccess, source = pcall(function()
+    return game:HttpGet(ScriptURL)
+end)
+
+if not downloadSuccess then
+    warn("[Kronos] Failed to download script:", source)
+    return
+end
+
+local compiled, compileError = loadstring(source)
+
+if not compiled then
+    warn("[Kronos] Failed to compile script:", compileError)
+    return
+end
+
+local executeSuccess, executeError = pcall(compiled)
+
+if not executeSuccess then
+    warn("[Kronos] Script execution failed:", executeError)
 end
