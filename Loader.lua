@@ -133,6 +133,7 @@ local Games = {
     [10698216738] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/MilitaryTycoon.lua",
     [10708913337] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/AnimeDice.lua",
     [10552240401] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/DefeatAnime.lua",
+    [10757690102] = "https://raw.githubusercontent.com/Nanana291/Kronos/refs/heads/main/Scripts/HowFish.lua",
 }
 
 local HttpService = game:GetService("HttpService")
